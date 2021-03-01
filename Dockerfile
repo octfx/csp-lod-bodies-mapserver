@@ -5,18 +5,13 @@ ENV TZ=Europe/Berlin
 
 WORKDIR /tmp
 
-# Download needed files
-ADD https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73776/world.topo.bathy.200408.3x21600x10800.jpg /storage/mapserver-datasets/earth/bluemarble/bluemarble.jpg
-ADD https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/raster/NE1_HR_LC_SR_W_DR.zip /tmp
-ADD https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data/ice_surface/cell_registered/georeferenced_tiff/ETOPO1_Ice_c_geotiff.zip /tmp
-ADD https://github.com/OSGeo/PROJ/releases/download/5.2.0/proj-5.2.0.zip /tmp
-
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone ;\
     apt-get update && \
     apt-get install -y apache2 \
                         apache2-bin \
                         apache2-utils \
                         cgi-mapserver \
+                        curl \
                         mapserver-bin \
                         mapserver-doc \
                         libmapscript-perl \
@@ -24,6 +19,17 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone ;
                         unzip \
                         gdal-bin ;\
     a2enmod cgi fcgid ;\
+    \
+    \
+    # Download needed files \
+    \
+    \
+    curl -O https://github.com/OSGeo/PROJ/releases/download/5.2.0/proj-5.2.0.zip ;\
+    curl -O https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/raster/NE1_HR_LC_SR_W_DR.zip ;\
+    curl -O https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data/ice_surface/cell_registered/georeferenced_tiff/ETOPO1_Ice_c_geotiff.zip ;\
+    curl -o /storage/mapserver-datasets/earth/bluemarble/bluemarble.jpg https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73776/world.topo.bathy.200408.3x21600x10800.jpg ;\
+    \
+    \
     mkdir -p /storage/mapserver-datasets/earth/naturalearth ;\
     mkdir -p /storage/mapserver-datasets/earth/etopo1 ;\
     mkdir -p /storage/mapserver-datasets/earth/bluemarble ;\
