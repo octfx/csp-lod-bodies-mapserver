@@ -24,23 +24,24 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone ;
                         unzip \
                         gdal-bin ;\
     a2enmod cgi fcgid ;\
-    mkdir -p /storage/mapserver-datasets/earth/naturalearth \
-    mkdir -p /storage/mapserver-datasets/earth/etopo1 \
+    mkdir -p /storage/mapserver-datasets/earth/naturalearth ;\
+    mkdir -p /storage/mapserver-datasets/earth/etopo1 ;\
     mkdir -p /storage/mapserver-datasets/earth/bluemarble ;\
     \
     \
     unzip /tmp/proj-5.2.0.zip && \
     cp /tmp/proj-5.2.0/nad/epsg /storage/mapserver-datasets;\
     \
-    unzip /tmp/NE1_HR_LC_SR_W_DR.zip \
-    cp /tmp/NE1_HR_LC_SR_W_DR.tif /storage/mapserver-datasets/earth/naturalearth/ORIGINAL_NE1_HR_LC_SR_W_DR.tif \
-    gdal_translate -co tiled=yes -co compress=deflate /storage/mapserver-datasets/earth/naturalearth/ORIGINAL_NE1_HR_LC_SR_W_DR.tif /storage/mapserver-datasets/earth/naturalearth/NE1_HR_LC_SR_W_DR.tif \
-    gdaladdo -r cubic /storage/mapserver-datasets/earth/naturalearth/NE1_HR_LC_SR_W_DR.tif 2 4 8 16; \
+    unzip /tmp/NE1_HR_LC_SR_W_DR.zip ;\
+    cp /tmp/NE1_HR_LC_SR_W_DR.tif /storage/mapserver-datasets/earth/naturalearth/ORIGINAL_NE1_HR_LC_SR_W_DR.tif ;\
+    gdal_translate -co tiled=yes -co compress=deflate /storage/mapserver-datasets/earth/naturalearth/ORIGINAL_NE1_HR_LC_SR_W_DR.tif /storage/mapserver-datasets/earth/naturalearth/NE1_HR_LC_SR_W_DR.tif ;\
+    gdaladdo -r cubic /storage/mapserver-datasets/earth/naturalearth/NE1_HR_LC_SR_W_DR.tif 2 4 8 16 ;\
     \
-    unzip /tmp/ETOPO1_Ice_c_geotiff.zip \
-    cp /tmp/ETOPO1_Ice_c_geotiff.tif /storage/mapserver-datasets/earth/etopo1/ORIGINAL_ETOPO1_Ice_c_geotiff.tif \
-    gdal_translate -co tiled=yes -co compress=deflate /storage/mapserver-datasets/earth/etopo1/ORIGINAL_ETOPO1_Ice_c_geotiff.tif /storage/mapserver-datasets/earth/etopo1/ETOPO1_Ice_c_geotiff.tif \
+    unzip /tmp/ETOPO1_Ice_c_geotiff.zip ;\
+    cp /tmp/ETOPO1_Ice_c_geotiff.tif /storage/mapserver-datasets/earth/etopo1/ORIGINAL_ETOPO1_Ice_c_geotiff.tif ;\
+    gdal_translate -co tiled=yes -co compress=deflate /storage/mapserver-datasets/earth/etopo1/ORIGINAL_ETOPO1_Ice_c_geotiff.tif /storage/mapserver-datasets/earth/etopo1/ETOPO1_Ice_c_geotiff.tif ;\
     gdaladdo -r cubic /storage/mapserver-datasets/earth/etopo1/ETOPO1_Ice_c_geotiff.tif 2 4 8 16 ;\
+    \
     \
     # Create Config Files \
     \
@@ -193,7 +194,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone ;
 \nEOF\n")" ;\
     \
     \
-    rm -rf /tmp/* \
+    rm -rf /tmp/* ;\
     chown -R www-data: /storage
 
 EXPOSE 80
