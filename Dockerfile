@@ -7,7 +7,8 @@ WORKDIR /tmp
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone ;\
     apt-get update && \
-    apt-get install -y apache2 \
+    apt-get install --no-install-recommends -y \
+                        apache2 \
                         apache2-bin \
                         apache2-utils \
                         cgi-mapserver \
@@ -21,6 +22,9 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone ;
     a2enmod cgi fcgid ;\
     \
     \
+    # Required Folders \
+    \
+    \
     mkdir -p /storage/mapserver-datasets/earth/naturalearth ;\
     mkdir -p /storage/mapserver-datasets/earth/etopo1 ;\
     mkdir -p /storage/mapserver-datasets/earth/bluemarble ;\
@@ -29,19 +33,24 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone ;
     # Download needed files \
     \
     \
-    curl -o /tmp/proj-5.2.0.zip https://github.com/OSGeo/PROJ/releases/download/5.2.0/proj-5.2.0.zip ;\
-    curl -o /tmp/NE1_HR_LC_SR_W_DR.zip https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/raster/NE1_HR_LC_SR_W_DR.zip ;\
-    curl -o /tmp/ETOPO1_Ice_c_geotiff.zip https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data/ice_surface/cell_registered/georeferenced_tiff/ETOPO1_Ice_c_geotiff.zip ;\
-    curl -o /storage/mapserver-datasets/earth/bluemarble/bluemarble.jpg https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73776/world.topo.bathy.200408.3x21600x10800.jpg ;\
+    curl -L -s -o /tmp/proj-5.2.0.zip https://github.com/OSGeo/PROJ/releases/download/5.2.0/proj-5.2.0.zip ;\
+    curl -L -s -o /tmp/NE1_HR_LC_SR_W_DR.zip https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/raster/NE1_HR_LC_SR_W_DR.zip ;\
+    curl -L -s -o /tmp/ETOPO1_Ice_c_geotiff.zip https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data/ice_surface/cell_registered/georeferenced_tiff/ETOPO1_Ice_c_geotiff.zip ;\
+    curl -L -s -o /storage/mapserver-datasets/earth/bluemarble/bluemarble.jpg https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73776/world.topo.bathy.200408.3x21600x10800.jpg ;\
+    \
+    \
+    # Unzipping and optimization of files \
     \
     \
     unzip /tmp/proj-5.2.0.zip && \
     cp /tmp/proj-5.2.0/nad/epsg /storage/mapserver-datasets;\
     \
+    \
     unzip /tmp/NE1_HR_LC_SR_W_DR.zip ;\
     cp /tmp/NE1_HR_LC_SR_W_DR.tif /storage/mapserver-datasets/earth/naturalearth/ORIGINAL_NE1_HR_LC_SR_W_DR.tif ;\
     gdal_translate -co tiled=yes -co compress=deflate /storage/mapserver-datasets/earth/naturalearth/ORIGINAL_NE1_HR_LC_SR_W_DR.tif /storage/mapserver-datasets/earth/naturalearth/NE1_HR_LC_SR_W_DR.tif ;\
     gdaladdo -r cubic /storage/mapserver-datasets/earth/naturalearth/NE1_HR_LC_SR_W_DR.tif 2 4 8 16 ;\
+    \
     \
     unzip /tmp/ETOPO1_Ice_c_geotiff.zip ;\
     cp /tmp/ETOPO1_Ice_c_geotiff.tif /storage/mapserver-datasets/earth/etopo1/ORIGINAL_ETOPO1_Ice_c_geotiff.tif ;\
@@ -200,8 +209,12 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone ;
 \nEOF\n")" ;\
     \
     \
+    # Remove temp files and chown to www \
+    \
+    \
     rm -rf /tmp/* ;\
-    chown -R www-data: /storage
+    chown -R www-data: /storage ;\
+    chmod -R g+w /storage
 
 EXPOSE 80
 
