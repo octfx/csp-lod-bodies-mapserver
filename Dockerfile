@@ -1,11 +1,18 @@
 FROM ubuntu:20.04
 
 LABEL Description="CosmoScout VR LOD Bodies Map Server" maintainer="octfx" Version="1.0"
-
 ENV TZ=Europe/Berlin
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-RUN apt-get update && \
+WORKDIR /tmp
+
+# Download needed files
+ADD https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73776/world.topo.bathy.200408.3x21600x10800.jpg /storage/mapserver-datasets/earth/bluemarble/bluemarble.jpg
+ADD https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/raster/NE1_HR_LC_SR_W_DR.zip /tmp
+ADD https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data/ice_surface/cell_registered/georeferenced_tiff/ETOPO1_Ice_c_geotiff.zip /tmp
+ADD https://github.com/OSGeo/PROJ/releases/download/5.2.0/proj-5.2.0.zip /tmp
+
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone ;\
+    apt-get update && \
     apt-get install -y apache2 \
                         apache2-bin \
                         apache2-utils \
@@ -16,9 +23,29 @@ RUN apt-get update && \
                         libapache2-mod-fcgid \
                         unzip \
                         gdal-bin ;\
-    a2enmod cgi fcgid
-
-RUN sh -c "$(/bin/echo -e "cat >> /etc/apache2/sites-available/000-default.conf <<EOF\
+    a2enmod cgi fcgid ;\
+    mkdir -p /storage/mapserver-datasets/earth/naturalearth \
+    mkdir -p /storage/mapserver-datasets/earth/etopo1 \
+    mkdir -p /storage/mapserver-datasets/earth/bluemarble ;\
+    \
+    \
+    unzip /tmp/proj-5.2.0.zip && \
+    cp /tmp/proj-5.2.0/nad/epsg /storage/mapserver-datasets;\
+    \
+    unzip /tmp/NE1_HR_LC_SR_W_DR.zip \
+    cp /tmp/NE1_HR_LC_SR_W_DR.tif /storage/mapserver-datasets/earth/naturalearth/ORIGINAL_NE1_HR_LC_SR_W_DR.tif \
+    gdal_translate -co tiled=yes -co compress=deflate /storage/mapserver-datasets/earth/naturalearth/ORIGINAL_NE1_HR_LC_SR_W_DR.tif /storage/mapserver-datasets/earth/naturalearth/NE1_HR_LC_SR_W_DR.tif \
+    gdaladdo -r cubic /storage/mapserver-datasets/earth/naturalearth/NE1_HR_LC_SR_W_DR.tif 2 4 8 16; \
+    \
+    unzip /tmp/ETOPO1_Ice_c_geotiff.zip \
+    cp /tmp/ETOPO1_Ice_c_geotiff.tif /storage/mapserver-datasets/earth/etopo1/ORIGINAL_ETOPO1_Ice_c_geotiff.tif \
+    gdal_translate -co tiled=yes -co compress=deflate /storage/mapserver-datasets/earth/etopo1/ORIGINAL_ETOPO1_Ice_c_geotiff.tif /storage/mapserver-datasets/earth/etopo1/ETOPO1_Ice_c_geotiff.tif \
+    gdaladdo -r cubic /storage/mapserver-datasets/earth/etopo1/ETOPO1_Ice_c_geotiff.tif 2 4 8 16 ;\
+    \
+    # Create Config Files \
+    \
+    \
+    sh -c "$(/bin/echo -e "cat >> /etc/apache2/sites-available/000-default.conf <<EOF\
 \nScriptAlias /cgi-bin/ /usr/lib/cgi-bin/\
 \n<Directory \"/usr/lib/cgi-bin/\">\
 \n        AllowOverride All\
@@ -26,27 +53,19 @@ RUN sh -c "$(/bin/echo -e "cat >> /etc/apache2/sites-available/000-default.conf 
 \n        AddHandler fcgid-script .fcgi\
 \n        Require all granted\
 \n</Directory>\
-\nEOF\n")"
-
-RUN mkdir -p /storage/mapserver-datasets/earth/naturalearth
-RUN mkdir -p /storage/mapserver-datasets/earth/etopo1
-RUN mkdir -p /storage/mapserver-datasets/earth/bluemarble
-
-WORKDIR /tmp
-
-ADD https://github.com/OSGeo/PROJ/releases/download/5.2.0/proj-5.2.0.zip /tmp
-RUN unzip /tmp/proj-5.2.0.zip
-RUN cp /tmp/proj-5.2.0/nad/epsg /storage/mapserver-datasets
-
-RUN sh -c "$(/bin/echo -e "cat >> /storage/mapserver-datasets/epsg <<EOF\
+\nEOF\n")" ;\
+    \
+    \
+    sh -c "$(/bin/echo -e "cat >> /storage/mapserver-datasets/epsg <<EOF\
 \nScriptAlias /cgi-bin/ /usr/lib/cgi-bin/\
 \n# custom rotated and scaled HEALPix, magic number is sqrt(2) * 2/pi\
 \n<900914> +proj=healpix +lon_0=0 +x_0=2.5 +y_0=2.5 +a=0.900316316157106 +rot_xy=45 +no_defs <>\
 \n# standard HEALPix on unit sphere\
 \n<900915> +proj=healpix +a=1 +b=1 <>\
-\nEOF\n")"
-
-RUN sh -c "$(/bin/echo -e "cat > /storage/mapserver-datasets/meta.map <<EOF\
+\nEOF\n")" ;\
+    \
+    \
+    sh -c "$(/bin/echo -e "cat > /storage/mapserver-datasets/meta.map <<EOF\
 \nMAP\
 \n  NAME \"CosmoScout VR Maps\"\
 \n  STATUS ON\
@@ -99,23 +118,10 @@ RUN sh -c "$(/bin/echo -e "cat > /storage/mapserver-datasets/meta.map <<EOF\
 \n  INCLUDE \"earth/naturalearth/naturalearth.map\"\
 \n  INCLUDE \"earth/etopo1/etopo1.map\"\
 \nEND\
-\nEOF\n")"
-
-ADD https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73776/world.topo.bathy.200408.3x21600x10800.jpg /storage/mapserver-datasets/earth/bluemarble/bluemarble.jpg
-
-ADD https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/raster/NE1_HR_LC_SR_W_DR.zip /tmp
-RUN unzip /tmp/NE1_HR_LC_SR_W_DR.zip
-RUN cp /tmp/NE1_HR_LC_SR_W_DR.tif /storage/mapserver-datasets/earth/naturalearth/ORIGINAL_NE1_HR_LC_SR_W_DR.tif
-RUN gdal_translate -co tiled=yes -co compress=deflate /storage/mapserver-datasets/earth/naturalearth/ORIGINAL_NE1_HR_LC_SR_W_DR.tif /storage/mapserver-datasets/earth/naturalearth/NE1_HR_LC_SR_W_DR.tif
-RUN gdaladdo -r cubic /storage/mapserver-datasets/earth/naturalearth/NE1_HR_LC_SR_W_DR.tif 2 4 8 16
-
-ADD https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data/ice_surface/cell_registered/georeferenced_tiff/ETOPO1_Ice_c_geotiff.zip /tmp
-RUN unzip /tmp/ETOPO1_Ice_c_geotiff.zip
-RUN cp /tmp/ETOPO1_Ice_c_geotiff.tif /storage/mapserver-datasets/earth/etopo1/ORIGINAL_ETOPO1_Ice_c_geotiff.tif
-RUN gdal_translate -co tiled=yes -co compress=deflate /storage/mapserver-datasets/earth/etopo1/ORIGINAL_ETOPO1_Ice_c_geotiff.tif /storage/mapserver-datasets/earth/etopo1/ETOPO1_Ice_c_geotiff.tif
-RUN gdaladdo -r cubic /storage/mapserver-datasets/earth/etopo1/ETOPO1_Ice_c_geotiff.tif 2 4 8 16
-
-RUN sh -c "$(/bin/echo -e "cat > /storage/mapserver-datasets/earth/bluemarble/bluemarble.map <<EOF\
+\nEOF\n")" ;\
+    \
+    \
+    sh -c "$(/bin/echo -e "cat > /storage/mapserver-datasets/earth/bluemarble/bluemarble.map <<EOF\
 \nLAYER\
 \n  NAME \"earth.bluemarble.rgb\"\
 \n  STATUS ON\
@@ -138,10 +144,10 @@ RUN sh -c "$(/bin/echo -e "cat > /storage/mapserver-datasets/earth/bluemarble/bl
 \n    WMS_TITLE \"earth.bluemarble.rgb\"\
 \n  END\
 \nEND\
-\nEOF\n")"
-
-
-RUN sh -c "$(/bin/echo -e "cat > /storage/mapserver-datasets/earth/naturalearth/naturalearth.map <<EOF\
+\nEOF\n")" ;\
+    \
+    \
+    sh -c "$(/bin/echo -e "cat > /storage/mapserver-datasets/earth/naturalearth/naturalearth.map <<EOF\
 \nLAYER\
 \n  NAME \"earth.naturalearth.rgb\"\
 \n  STATUS ON\
@@ -161,10 +167,10 @@ RUN sh -c "$(/bin/echo -e "cat > /storage/mapserver-datasets/earth/naturalearth/
 \n    WMS_TITLE \"earth.naturalearth.rgb\"\
 \n  END\
 \nEND\
-\nEOF\n")"
-
-
-RUN sh -c "$(/bin/echo -e "cat > /storage/mapserver-datasets/earth/etopo1/etopo1.map <<EOF\
+\nEOF\n")" ;\
+    \
+    \
+    sh -c "$(/bin/echo -e "cat > /storage/mapserver-datasets/earth/etopo1/etopo1.map <<EOF\
 \nLAYER\
 \n  NAME \"earth.etopo1.dem\"\
 \n  STATUS ON\
@@ -184,9 +190,10 @@ RUN sh -c "$(/bin/echo -e "cat > /storage/mapserver-datasets/earth/etopo1/etopo1
 \n    WMS_TITLE \"earth.etopo1.dem\"\
 \n  END\
 \nEND\
-\nEOF\n")"
-
-RUN rm -rf /tmp/* \
+\nEOF\n")" ;\
+    \
+    \
+    rm -rf /tmp/* \
     chown -R www-data: /storage
 
 EXPOSE 80
